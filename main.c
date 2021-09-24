@@ -69,29 +69,6 @@ int ppm_write(const char *file_path, const sc_image *sc)
     return 1;
 }
 
-// updates image (do not use for initialization)
-int sc_image_update(Display *display, Window *drawable, sc_image *sc)
-{
-    if (display && drawable && sc) {
-        XImage* image = XGetImage(
-            display,          // Display 
-            *drawable,        // Drawable
-            0,                // x origin
-            0,                // y origin
-            sc->width,        // width of subimage
-            sc->height,       // height of subimage
-            AllPlanes,        // plane mask
-            ZPixmap           // image format: ZPixmap (RGBA) | XYPixmap
-        );
-
-        memcpy(sc->pixels, image->data, sc->byte_size);
-        XDestroyImage(image);
-        return 0;
-    }
-
-    return 1;
-}
-
 int main(int argc, char **argv)
 {
     if (argc != 2) {
