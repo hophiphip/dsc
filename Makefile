@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-lX11 -pedantic
+CFLAGS=-lX11 -lXext -pedantic
 
 OUT_BIN=sc
 

@@ -1,12 +1,14 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <X11/extensions/XShm.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-
-#include <unistd.h>
 
 typedef struct {
     uint8_t *pixels;
@@ -77,28 +79,62 @@ int main(int argc, char **argv)
     }
 
     Display *display = XOpenDisplay(NULL);
+    // TODO: Create a fallback with standard xlib calls
+    // for systems that do not support shared memory
+    if (XShmQueryExtension(display) != True) {
+        fprintf(stderr, "shared memory extension is not supported\n");
+        exit(1);
+    }
+
     Window root = DefaultRootWindow(display);
     sc_image sc = { 0 };
 
     XWindowAttributes attributes = { 0 };
     XGetWindowAttributes(display, root, &attributes);
 
+    Screen *screen = attributes.screen;
+    XShmSegmentInfo shminfo;
+
+    XImage* ximage = XShmCreateImage(
+            display,                        // Display
+            DefaultVisualOfScreen(screen),  // Visual
+            DefaultDepthOfScreen(screen),   // depth
+            ZPixmap,                        // format
+            NULL,                           // data
+            &shminfo,                       // ShmSegmentInfo
+            attributes.width,               // width
+            attributes.height               // height
+    );
+
+    shminfo.shmid = shmget(IPC_PRIVATE, ximage->bytes_per_line * ximage->height, IPC_CREAT|0777);
+    shminfo.shmaddr = ximage->data = (char *)shmat(shminfo.shmid, 0, 0);
+    shminfo.readOnly = False;
+
+    if (shminfo.shmid < 0) {
+        fprintf(stderr, "fatal shminfo error\n");
+        exit(1);
+    }
+
+    Status status = XShmAttach(display, &shminfo);
+    if (!status) {
+        fprintf(stderr, "shm attach failed\n");
+        exit(1);
+    }
+
     // sc initialization --------------------------------------------
     sc.width  = attributes.width;
     sc.height = attributes.height;
 
-    XImage* image = XGetImage(
+    XShmGetImage(
         display,          // Display 
         root,             // Drawable
-        0,                // x origin
-        0,                // y origin
-        sc.width,         // width of subimage
-        sc.height,        // height of subimage
-        AllPlanes,        // plane mask
-        ZPixmap           // image format: ZPixmap (RGBA) | XYPixmap
+        ximage,           // XImage
+        0,                // x offset 
+        0,                // y offset
+        0x00ffffff        // plane mask (which planes to read)
     );
 
-    sc.bits_per_pixel = image->bits_per_pixel; 
+    sc.bits_per_pixel = ximage->bits_per_pixel; 
     sc.byte_size      = sc.width  *
                             sc.height *
                                sc.bits_per_pixel / 8;
@@ -106,9 +142,8 @@ int main(int argc, char **argv)
     uint8_t screen_buffer[sc.byte_size];
     sc.pixels = screen_buffer;
 
-    memcpy(sc.pixels, image->data, sc.byte_size);
+    memcpy(sc.pixels, ximage->data, sc.byte_size);
 
-    XDestroyImage(image);
     // -------------------------------------------------------------- 
 
     // Log sc image info:
@@ -124,12 +159,15 @@ int main(int argc, char **argv)
         exit(1);
     }   
 
-
     if (ppm_write("test.ppm", &sc) == 0)
         fprintf(stdout, "PPM Write status: OK\n");
     else 
         fprintf(stderr, "PPM Write status: Error\n");
     
     // cleanup
+    XShmDetach(display, &shminfo);
+    XDestroyImage(ximage);
+    shmdt(shminfo.shmaddr);
+
     XCloseDisplay(display);
 }
