@@ -1,0 +1,9 @@
+*.ppm
+*.jpg
+*.jpeg
+*.png
+
+# Ignore binary files
+*.o
+main
+sc
