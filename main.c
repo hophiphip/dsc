@@ -48,14 +48,14 @@ int ppm_write(const char *file_path, const sc_image *sc)
                 ppm_max_color_component
         );
 
-        // TODO: Screenshots color is different (but it'll do for now)
         // Write image bytes
         uint8_t rgb_pixels[3];
         for (int i = 0; i < sc->byte_size; i += 4) {
-            rgb_pixels[0] = (uint8_t)(sc->pixels[i    ] & 0xff); // R
+            // BGR -> RGB
+            rgb_pixels[0] = (uint8_t)(sc->pixels[i + 2] & 0xff); // R
             rgb_pixels[1] = (uint8_t)(sc->pixels[i + 1] & 0xff); // G
-            rgb_pixels[2] = (uint8_t)(sc->pixels[i + 2] & 0xff); // B
-                                                             // A - ignored
+            rgb_pixels[2] = (uint8_t)(sc->pixels[i    ] & 0xff); // B
+                                                                 // A - ignored
             fwrite(rgb_pixels, 1, 3, fp);
         }
         
