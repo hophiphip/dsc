@@ -10,6 +10,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <assert.h>
+
+const int resize_coef = 2;
+
 typedef struct {
     uint8_t *pixels;
     int width;
@@ -36,8 +40,8 @@ int ppm_write(const char *file_path, const sc_image *sc)
         fprintf(stdout, "PPM Header:\n\t%s\n\t%s\n\t%d\n\t%d\n\t%lu\n", 
                 ppm_format, 
                 ppm_comment, 
-                sc->width, 
-                sc->height, 
+                sc->width / resize_coef, 
+                sc->height / resize_coef, 
                 ppm_max_color_component
         );
 
@@ -45,24 +49,79 @@ int ppm_write(const char *file_path, const sc_image *sc)
         fprintf(fp, "%s\n %s\n %d\n %d\n %lu\n",
                 ppm_format,
                 ppm_comment, 
-                sc->width, 
-                sc->height, 
+                sc->width / resize_coef, 
+                sc->height / resize_coef, 
                 ppm_max_color_component
         );
 
-        // Write image bytes
+        //// Write without resize
+        //uint8_t rgb_pixels[3];
+        ////for (int i = 0; i < sc->byte_size; i += 4) {
+        //for (int y = 0; y < sc->height; y += 1)
+        //    for (int x = 0; x < sc->width; x += 1) {
+        //        //
+        //        int i = (y * sc->width + x) * (sc->bits_per_pixel / 8); 
+
+        //        // Without resize
+        //        // BGR -> RGB
+        //        //
+        //        rgb_pixels[0] = (uint8_t)(sc->pixels[i + 2]); // R
+        //        rgb_pixels[1] = (uint8_t)(sc->pixels[i + 1]); // G
+        //        rgb_pixels[2] = (uint8_t)(sc->pixels[i    ]); // B
+        //                                                      // A - ignored
+        //        fwrite(rgb_pixels, 1, 3, fp);
+        //    }
+        //}
+
+        int32_t b_test = sc->pixels[0] + sc->pixels[4] + sc->pixels[sc->width] + sc->pixels[sc->width + 4];
+        int32_t g_test = sc->pixels[1] + sc->pixels[5] + sc->pixels[sc->width + 1] + sc->pixels[sc->width + 5];
+        int32_t r_test = sc->pixels[2] + sc->pixels[6] + sc->pixels[sc->width + 2] + sc->pixels[sc->width + 6];
+
+        int fwrite_count = 0, x, y;
+        // Write image bytes and resize image
+        // Slow implementation for now will be enough
         uint8_t rgb_pixels[3];
-        for (int i = 0; i < sc->byte_size; i += 4) {
-            // BGR -> RGB
-            rgb_pixels[0] = (uint8_t)(sc->pixels[i + 2] & 0xff); // R
-            rgb_pixels[1] = (uint8_t)(sc->pixels[i + 1] & 0xff); // G
-            rgb_pixels[2] = (uint8_t)(sc->pixels[i    ] & 0xff); // B
-                                                                 // A - ignored
-            fwrite(rgb_pixels, 1, 3, fp);
+        for (y = 0; y < sc->height; y += resize_coef) {
+            for (x = 0; x < sc->width; x += resize_coef) {
+                int i = (y * sc->width + x) * (sc->bits_per_pixel / 8);
+
+                // Resize image to lower resolution
+                // r, b, g - is a sum of colors in square (resize_coef x resize_coef)
+                uint32_t r = 0, g = 0, b = 0;
+                for (int h = 0; h < resize_coef; ++h) {
+                    for (int v = 0; v < resize_coef; ++v) {
+                        r += (uint32_t)sc->pixels[i + 2 + (v * 4) + (h * sc->width)];
+                        g += (uint32_t)sc->pixels[i + 1 + (v * 4) + (h * sc->width)];
+                        b += (uint32_t)sc->pixels[i     + (v * 4) + (h * sc->width)];
+                    }
+                }
+                rgb_pixels[0] = (uint8_t)(r / (resize_coef * resize_coef)) & 0xff;
+                rgb_pixels[1] = (uint8_t)(g / (resize_coef * resize_coef)) & 0xff;
+                rgb_pixels[2] = (uint8_t)(b / (resize_coef * resize_coef)) & 0xff;
+
+
+                if (x == 0 && y == 0) {
+                    assert(b == b_test);
+                    assert(g == g_test);
+                    assert(r == r_test);
+
+                    fprintf(stdout, "0    : %d %d %d\n", sc->pixels[2], sc->pixels[1], sc->pixels[0]);
+                    fprintf(stdout, "4    : %d %d %d\n", sc->pixels[6], sc->pixels[5], sc->pixels[4]);
+                    fprintf(stdout, "w    : %d %d %d\n", sc->pixels[sc->width + 2], sc->pixels[sc->width + 1], sc->pixels[sc->width]);
+                    fprintf(stdout, "w + 4: %d %d %d\n", sc->pixels[sc->width + 6], sc->pixels[sc->width + 5], sc->pixels[sc->width + 4]);
+
+                    fprintf(stdout, "average: %d %d %d\n", r_test / (resize_coef*resize_coef) & 0xff,
+                            g_test / (resize_coef*resize_coef) & 0xff,
+                            b_test / (resize_coef*resize_coef)) & 0xff;
+                                                            
+                }
+
+                fwrite(rgb_pixels, 1, 3, fp);
+                ++fwrite_count;
+            }
         }
-        
-        // Write all pixels (for later) 
-        //fwrite(pixels, sc->byte_size, 1, fp);
+
+        assert(fwrite_count == ((sc->width / resize_coef) * (sc->height / resize_coef)));
 
         fclose(fp);
         return 0;
@@ -164,7 +223,7 @@ int main(int argc, char **argv)
     else 
         fprintf(stderr, "PPM Write status: Error\n");
     
-    // cleanup
+    // Cleanup
     XShmDetach(display, &shminfo);
     XDestroyImage(ximage);
     shmdt(shminfo.shmaddr);
