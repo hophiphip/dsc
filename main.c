@@ -12,6 +12,9 @@
 
 #include <assert.h>
 
+#include <time.h>
+#define FPS(start) (CLOCKS_PER_SEC / (clock() - start))
+
 const int resize_coef = 3;
 
 typedef struct {
@@ -190,7 +193,7 @@ int main(int argc, char **argv)
 
     // Log sc image info:
     if (sc.width && sc.height) {
-        fprintf(stdout, "INFO:\n\twidth: %d\n\theight: %d\n\tbits_per_pixel: %d\n\tbuffer size: %d bytes\n",
+        fprintf(stdout, "INFO:\n\twidth: %d\n\theight: %d\n\tbits per pixel: %d\n\tbuffer size: %d bytes\n",
             sc.width,
             sc.height,
             sc.bits_per_pixel,
@@ -208,7 +211,9 @@ int main(int argc, char **argv)
             fprintf(stderr, "PPM Write status: Error\n");
     }
     else {
-        while (is_streaming) {
+        for (int i; is_streaming; ++i) {
+            double start = clock();
+
             XShmGetImage(
                 display,          // Display 
                 root,             // Drawable
@@ -219,6 +224,12 @@ int main(int argc, char **argv)
             );
 
             // work with: ximage->data  
+            //
+            
+            if(!(i & 0b111111)) {
+                fprintf(stdout, "\r[FPS]: %4.f", FPS(start));
+                fflush(stdout);
+            }
         }
     }
 
