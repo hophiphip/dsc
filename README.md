@@ -2,7 +2,7 @@
 Takes a screenshot and saves it as [.ppm](https://en.wikipedia.org/wiki/Netpbm) image
 
 ## Usage
-### Compile
+### Build project
 ```bash
 cmake .
 cmake --build .
