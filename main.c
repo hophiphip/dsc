@@ -12,7 +12,7 @@
 
 #include <assert.h>
 
-const int resize_coef = 2;
+const int resize_coef = 3;
 
 typedef struct {
     uint8_t *pixels;
@@ -73,9 +73,6 @@ int ppm_write(const char *file_path, const sc_image *sc)
         //    }
         //}
 
-        int32_t b_test = sc->pixels[0] + sc->pixels[4] + sc->pixels[sc->width] + sc->pixels[sc->width + 4];
-        int32_t g_test = sc->pixels[1] + sc->pixels[5] + sc->pixels[sc->width + 1] + sc->pixels[sc->width + 5];
-        int32_t r_test = sc->pixels[2] + sc->pixels[6] + sc->pixels[sc->width + 2] + sc->pixels[sc->width + 6];
 
         int fwrite_count = 0, x, y;
         // Write image bytes and resize image
@@ -90,31 +87,14 @@ int ppm_write(const char *file_path, const sc_image *sc)
                 uint32_t r = 0, g = 0, b = 0;
                 for (int h = 0; h < resize_coef; ++h) {
                     for (int v = 0; v < resize_coef; ++v) {
-                        r += (uint32_t)sc->pixels[i + 2 + (v * 4) + (h * sc->width)];
-                        g += (uint32_t)sc->pixels[i + 1 + (v * 4) + (h * sc->width)];
-                        b += (uint32_t)sc->pixels[i     + (v * 4) + (h * sc->width)];
+                        r += (uint32_t)sc->pixels[i + 2 + (v * 4) + (h * sc->width * sc->bits_per_pixel / 8)];
+                        g += (uint32_t)sc->pixels[i + 1 + (v * 4) + (h * sc->width * sc->bits_per_pixel / 8)];
+                        b += (uint32_t)sc->pixels[i     + (v * 4) + (h * sc->width * sc->bits_per_pixel / 8)];
                     }
                 }
                 rgb_pixels[0] = (uint8_t)(r / (resize_coef * resize_coef)) & 0xff;
                 rgb_pixels[1] = (uint8_t)(g / (resize_coef * resize_coef)) & 0xff;
                 rgb_pixels[2] = (uint8_t)(b / (resize_coef * resize_coef)) & 0xff;
-
-
-                if (x == 0 && y == 0) {
-                    assert(b == b_test);
-                    assert(g == g_test);
-                    assert(r == r_test);
-
-                    fprintf(stdout, "0    : %d %d %d\n", sc->pixels[2], sc->pixels[1], sc->pixels[0]);
-                    fprintf(stdout, "4    : %d %d %d\n", sc->pixels[6], sc->pixels[5], sc->pixels[4]);
-                    fprintf(stdout, "w    : %d %d %d\n", sc->pixels[sc->width + 2], sc->pixels[sc->width + 1], sc->pixels[sc->width]);
-                    fprintf(stdout, "w + 4: %d %d %d\n", sc->pixels[sc->width + 6], sc->pixels[sc->width + 5], sc->pixels[sc->width + 4]);
-
-                    fprintf(stdout, "average: %d %d %d\n", r_test / (resize_coef*resize_coef) & 0xff,
-                            g_test / (resize_coef*resize_coef) & 0xff,
-                            b_test / (resize_coef*resize_coef)) & 0xff;
-                                                            
-                }
 
                 fwrite(rgb_pixels, 1, 3, fp);
                 ++fwrite_count;
@@ -132,9 +112,12 @@ int ppm_write(const char *file_path, const sc_image *sc)
 
 int main(int argc, char **argv)
 {
+    int is_streaming = 0;
     if (argc != 2) {
-        fprintf(stdout, "Usage %s [OUTPUT PPM FILENAME]\n", argv[0]);
-        exit(1);
+        // TODO: Add program params
+        //fprintf(stdout, "Usage %s [OUTPUT PPM FILENAME]\n", argv[0]);
+        //exit(1);
+        is_streaming = 1;
     }
 
     Display *display = XOpenDisplay(NULL);
@@ -218,11 +201,27 @@ int main(int argc, char **argv)
         exit(1);
     }   
 
-    if (ppm_write("test.ppm", &sc) == 0)
-        fprintf(stdout, "PPM Write status: OK\n");
-    else 
-        fprintf(stderr, "PPM Write status: Error\n");
-    
+    if (!is_streaming) {
+        if (ppm_write("test.ppm", &sc) == 0)
+            fprintf(stdout, "PPM Write status: OK\n");
+        else 
+            fprintf(stderr, "PPM Write status: Error\n");
+    }
+    else {
+        while (is_streaming) {
+            XShmGetImage(
+                display,          // Display 
+                root,             // Drawable
+                ximage,           // XImage
+                0,                // x offset 
+                0,                // y offset
+                0x00ffffff        // plane mask (which planes to read)
+            );
+
+            // work with: ximage->data  
+        }
+    }
+
     // Cleanup
     XShmDetach(display, &shminfo);
     XDestroyImage(ximage);
