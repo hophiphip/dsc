@@ -15,6 +15,17 @@
 #include <time.h>
 #define FPS(start) (CLOCKS_PER_SEC / (clock() - start))
 
+#include "mongoose/mongoose.h"
+struct mg_mgr mgr;
+
+static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) 
+{
+    // Serve local dir
+    struct mg_http_serve_opts opts = {.root_dir = "."};   
+    if (ev == MG_EV_HTTP_MSG) 
+        mg_http_serve_dir(c, ev_data, &opts);
+}
+
 const int resize_coef = 3;
 
 typedef struct {

@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 
 project(dsc VERSION 0.1)
 
+include_directories(include)
+
 if(WIN32)
     # for Windows operating system in general
     message(FATAL_ERROR "WIN32 not supported" )
@@ -19,4 +21,7 @@ elseif(UNIX AND NOT APPLE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -ggdb -lX11 -lXext -pedantic")
 endif()
 
-add_executable(dsc main.c)
+add_executable(dsc 
+    include/mongoose/mongoose.c
+    main.c
+)

@@ -129,6 +129,30 @@ dsc/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/dsc.dir/build.make CMakeFiles/dsc.dir/build
 .PHONY : dsc/fast
 
+include/mongoose/mongoose.o: include/mongoose/mongoose.c.o
+.PHONY : include/mongoose/mongoose.o
+
+# target to build an object file
+include/mongoose/mongoose.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dsc.dir/build.make CMakeFiles/dsc.dir/include/mongoose/mongoose.c.o
+.PHONY : include/mongoose/mongoose.c.o
+
+include/mongoose/mongoose.i: include/mongoose/mongoose.c.i
+.PHONY : include/mongoose/mongoose.i
+
+# target to preprocess a source file
+include/mongoose/mongoose.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dsc.dir/build.make CMakeFiles/dsc.dir/include/mongoose/mongoose.c.i
+.PHONY : include/mongoose/mongoose.c.i
+
+include/mongoose/mongoose.s: include/mongoose/mongoose.c.s
+.PHONY : include/mongoose/mongoose.s
+
+# target to generate assembly for a file
+include/mongoose/mongoose.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dsc.dir/build.make CMakeFiles/dsc.dir/include/mongoose/mongoose.c.s
+.PHONY : include/mongoose/mongoose.c.s
+
 main.o: main.c.o
 .PHONY : main.o
 
@@ -162,6 +186,9 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... dsc"
+	@echo "... include/mongoose/mongoose.o"
+	@echo "... include/mongoose/mongoose.i"
+	@echo "... include/mongoose/mongoose.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
