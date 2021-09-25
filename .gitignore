@@ -7,3 +7,7 @@
 *.o
 main
 dsc
+build
+build/*
+CMakeFiles
+CMakeFiles/*

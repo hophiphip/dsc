@@ -226,7 +226,7 @@ int main(int argc, char **argv)
             // work with: ximage->data  
             //
             
-            if(!(i & 0b111111)) {
+            if(!(i & 0x3F)) {
                 fprintf(stdout, "\r[FPS]: %4.f", FPS(start));
                 fflush(stdout);
             }
