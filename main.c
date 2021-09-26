@@ -16,18 +16,19 @@
 #define FPS(start) (CLOCKS_PER_SEC / (clock() - start))
 
 #include "mongoose/mongoose.h"
-struct mg_mgr mgr;
 
-static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) 
-{
-    // Serve local dir
-    struct mg_http_serve_opts opts = {.root_dir = "."};   
-    if (ev == MG_EV_HTTP_MSG) 
-        mg_http_serve_dir(c, ev_data, &opts);
-}
+char *src_url = "ws://localhost:8080/ws";
+bool is_connected = false;
+bool is_streaming = false;
+
+const char *dots[] = {
+    ".  ", ".. ", "..."
+};
 
 const int resize_coef = 3;
 
+// TODO: Rename it to image config
+// Do not store pixels here --> they can be accesed from ximage buffer
 typedef struct {
     uint8_t *pixels;
     int width;
@@ -35,6 +36,19 @@ typedef struct {
     int bits_per_pixel;
     int byte_size;
 } sc_image;
+
+struct sc_image_conf {
+    int width;
+    int height;
+    int bits_per_pixel;
+    int byte_size;
+
+    Display *display;
+    Drawable *drawable;
+    XImage *img;
+
+    struct mg_mgr *mgr;
+};
 
 int ppm_write(const char *file_path, const sc_image *sc) 
 {
@@ -67,26 +81,6 @@ int ppm_write(const char *file_path, const sc_image *sc)
                 sc->height / resize_coef, 
                 ppm_max_color_component
         );
-
-        //// Write without resize
-        //uint8_t rgb_pixels[3];
-        ////for (int i = 0; i < sc->byte_size; i += 4) {
-        //for (int y = 0; y < sc->height; y += 1)
-        //    for (int x = 0; x < sc->width; x += 1) {
-        //        //
-        //        int i = (y * sc->width + x) * (sc->bits_per_pixel / 8); 
-
-        //        // Without resize
-        //        // BGR -> RGB
-        //        //
-        //        rgb_pixels[0] = (uint8_t)(sc->pixels[i + 2]); // R
-        //        rgb_pixels[1] = (uint8_t)(sc->pixels[i + 1]); // G
-        //        rgb_pixels[2] = (uint8_t)(sc->pixels[i    ]); // B
-        //                                                      // A - ignored
-        //        fwrite(rgb_pixels, 1, 3, fp);
-        //    }
-        //}
-
 
         int fwrite_count = 0, x, y;
         // Write image bytes and resize image
@@ -124,14 +118,61 @@ int ppm_write(const char *file_path, const sc_image *sc)
     return 1;
 }
 
+
+static void stream_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data)
+{
+    switch (ev) {
+        case MG_EV_ERROR: {
+            LOG(LL_ERROR, ("%p %s", c->fd, (char *) ev_data));
+        } break;
+
+        case MG_EV_WS_OPEN: {
+            c->label[0] = 'W';
+            is_connected = true;
+        } break;
+
+        case MG_EV_WS_MSG: {
+            /* DO NOTHING */
+        } break;
+    }
+
+    if (ev == MG_EV_ERROR || ev == MG_EV_CLOSE) {
+        is_connected = false;
+    }
+}
+
+static void stream_timer_callback(void *arg) 
+{
+    struct sc_image_conf *conf = (struct sc_image_conf *)arg;
+    static char dot_idx = 0;
+
+    if (is_connected) {
+        for (struct mg_connection *c = conf->mgr->conns; c != NULL; c = c->next) {
+            if (c->label[0] == 'W') {
+                // Update image
+                XShmGetImage(
+                    conf->display,          
+                    *(conf->drawable),
+                    conf->img,        
+                    0,                
+                    0,                
+                    0x00ffffff        
+                );
+
+
+                mg_ws_send(c, conf->img->data, conf->byte_size, WEBSOCKET_OP_TEXT);
+            }
+        }
+    } else {
+        LOG(LL_INFO, ("Not connected%s", dots[dot_idx]));
+        dot_idx = (dot_idx + 1) % 3;
+    }
+}
+
 int main(int argc, char **argv)
 {
-    int is_streaming = 0;
     if (argc != 2) {
-        // TODO: Add program params
-        //fprintf(stdout, "Usage %s [OUTPUT PPM FILENAME]\n", argv[0]);
-        //exit(1);
-        is_streaming = 1;
+        is_streaming = true;
     }
 
     Display *display = XOpenDisplay(NULL);
@@ -222,28 +263,72 @@ int main(int argc, char **argv)
             fprintf(stderr, "PPM Write status: Error\n");
     }
     else {
-        for (int i; is_streaming; ++i) {
-            double start = clock();
+        //for (int i; is_streaming; ++i) {
+        //    double start = clock();
 
-            XShmGetImage(
-                display,          // Display 
-                root,             // Drawable
-                ximage,           // XImage
-                0,                // x offset 
-                0,                // y offset
-                0x00ffffff        // plane mask (which planes to read)
-            );
+        //    XShmGetImage(
+        //        display,          // Display 
+        //        root,             // Drawable
+        //        ximage,           // XImage
+        //        0,                // x offset 
+        //        0,                // y offset
+        //        0x00ffffff        // plane mask (which planes to read)
+        //    );
 
-            // work with: ximage->data  
-            //
+        //    // work with: ximage->data  
+        //    //
+        //    
+        //    if(!(i & 0x3F)) {
+        //        fprintf(stdout, "\r[FPS]: %4.f", FPS(start));
+        //        fflush(stdout);
+        //    }
+        //}
+
+        XShmGetImage(
+            display,          // Display 
+            root,             // Drawable
+            ximage,           // XImage
+            0,                // x offset 
+            0,                // y offset
+            0x00ffffff        // plane mask (which planes to read)
+        );
+
+        struct mg_mgr mgr;
+        struct mg_timer timer;
+        struct sc_image_conf img_conf = { 
+            .width = attributes.width,
+            .height = attributes.height,
+            .bits_per_pixel = ximage->bits_per_pixel,
+            .byte_size = attributes.width * attributes.height * (ximage->bits_per_pixel / 8),
             
-            if(!(i & 0x3F)) {
-                fprintf(stdout, "\r[FPS]: %4.f", FPS(start));
-                fflush(stdout);
-            }
+            .img = ximage,
+            .display = display,
+            .drawable = &root,
+
+            .mgr = NULL
+        };
+        struct mg_connection *conn;
+
+        mg_log_set("3");
+        mg_mgr_init(&mgr);
+        conn = mg_ws_connect(&mgr, src_url, stream_handler, &img_conf, NULL);
+        if (conn == NULL) {
+            fprintf(stderr, "could not connect to the server\n");
+            mg_mgr_free(&mgr);
+            goto cleanup;
         }
+
+        img_conf.mgr = &mgr;
+
+        mg_timer_init(&timer, 1000, MG_TIMER_REPEAT, stream_timer_callback, &img_conf);
+        for (;;)
+            mg_mgr_poll(&mgr, 1000);
+
+        mg_timer_free(&timer);
+        mg_mgr_free(&mgr);
     }
 
+cleanup:
     // Cleanup
     XShmDetach(display, &shminfo);
     XDestroyImage(ximage);
