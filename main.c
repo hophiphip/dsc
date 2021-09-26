@@ -162,7 +162,7 @@ static void stream_timer_callback(void *arg)
                 );
 
 
-                mg_ws_send(c, conf->img->data, conf->byte_size, WEBSOCKET_OP_TEXT);
+                mg_ws_send(c, conf->img->data, conf->byte_size, WEBSOCKET_OP_BINARY);
             }
         }
     } else {
