@@ -263,36 +263,6 @@ int main(int argc, char **argv)
             fprintf(stderr, "PPM Write status: Error\n");
     }
     else {
-        //for (int i; is_streaming; ++i) {
-        //    double start = clock();
-
-        //    XShmGetImage(
-        //        display,          // Display 
-        //        root,             // Drawable
-        //        ximage,           // XImage
-        //        0,                // x offset 
-        //        0,                // y offset
-        //        0x00ffffff        // plane mask (which planes to read)
-        //    );
-
-        //    // work with: ximage->data  
-        //    //
-        //    
-        //    if(!(i & 0x3F)) {
-        //        fprintf(stdout, "\r[FPS]: %4.f", FPS(start));
-        //        fflush(stdout);
-        //    }
-        //}
-
-        XShmGetImage(
-            display,          // Display 
-            root,             // Drawable
-            ximage,           // XImage
-            0,                // x offset 
-            0,                // y offset
-            0x00ffffff        // plane mask (which planes to read)
-        );
-
         struct mg_mgr mgr;
         struct mg_timer timer;
         struct sc_image_conf img_conf = { 
