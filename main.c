@@ -21,8 +21,6 @@ char *src_url = "ws://localhost:8080/ws";
 bool is_connected = false;
 bool is_streaming = false;
 
-// TODO: Major refactoring is required. For now it is just a test implementation.
-
 const char *dots[] = {
     ".  ", ".. ", "..."
 };
