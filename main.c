@@ -171,6 +171,148 @@ static void stream_timer_callback(void *arg)
     }
 }
 
+static inline int img_width() {
+    return attributes.width;
+}
+
+static inline int img_height() {
+    return attributes.height;
+}
+
+static inline int img_bits_per_pixel() {
+    return ximage->bits_per_pixel;
+}
+
+static inline int img_byte_count() {
+    return img_width() 
+            * img_height() 
+            * img_bits_per_pixel()
+            / 8;
+}
+
+static inline char* img_pixels() {
+    return ximage->data;
+}
+
+static inline int img_buffer_width() {
+    return img_width() / downscale_coef;
+}
+
+static inline int img_buffer_height() {
+    return img_height() / downscale_coef;
+}
+
+static inline int img_buffer_byte_count() {
+    return img_buffer_width() 
+            * img_buffer_height()
+            * 3; // (r, g, b)
+}
+
+static void img_buffer_transform() {
+    // TODO: Handle case with downscale_coef == 1 mb. use enum instead
+    assert(downscale_coef >= 1);
+
+    int width  = img_width(), 
+        height = img_height(),
+        bpp    = img_bits_per_pixel(),
+        image_pixel_idx = 0;
+    
+    unsigned int r = 0, g = 0, b = 0;
+
+    // NOTE: This is important, as ximage in Shm implementation gets updated in real time
+    // so ximage->data buffer might be updated during image downscaling operation
+    memcpy(img_buffer, img_pixels(), img_byte_count());
+
+    for (int y = 0; y < height; y += downscale_coef) {
+        for (int x = 0; x < width; x += downscale_coef) {
+            int i = (y * width + x) * (bpp / 8);
+
+            r = 0, g = 0, b = 0;
+            for (int h = 0; h < downscale_coef; ++h) {
+                for (int v = 0; v < downscale_coef; ++v) {
+                    r += (unsigned int)img_buffer[i + 2 + (v * bpp / 8) + (h * width * bpp / 8)];
+                    g += (unsigned int)img_buffer[i + 1 + (v * bpp / 8) + (h * width * bpp / 8)];
+                    b += (unsigned int)img_buffer[i     + (v * bpp / 8) + (h * width * bpp / 8)];
+                }
+            }
+            
+            img_buffer[image_pixel_idx    ] = (unsigned char)(r / (downscale_coef * downscale_coef)) & 0xff;
+            img_buffer[image_pixel_idx + 1] = (unsigned char)(g / (downscale_coef * downscale_coef)) & 0xff;
+            img_buffer[image_pixel_idx + 2] = (unsigned char)(b / (downscale_coef * downscale_coef)) & 0xff;
+            image_pixel_idx += 3;
+        }
+    }
+}
+
+// Update image buffer
+static void img_buffer_update() 
+{
+    // Update image
+    XShmGetImage(
+        display,    // Display 
+        root,       // Drawable
+        ximage,     // XImage
+        0,          // x offset 
+        0,          // y offset
+        0x00ffffff  // plane mask (which planes to read)
+    );
+
+    img_buffer_transform();
+}
+
+// Write image buffer bytes to a file
+static int img_buffer_write(const char *path) 
+{
+    const unsigned long ppm_max_color_component = 256UL - 1UL; 
+    const char *ppm_comment                     = "# screen capture output";
+    const char *ppm_format                      = "P6";
+
+    FILE *fp;
+    if ((fp = fopen(path, "wb")) == NULL) {
+        fprintf(stderr, "failed to open file: %s\n", path);
+        return 1;
+    }
+
+    // Log ppm image header
+    fprintf(stdout, "PPM Header:\n\t%s\n\t%s\n\t%d\n\t%d\n\t%lu\n", 
+            ppm_format, 
+            ppm_comment, 
+            img_buffer_width(), 
+            img_buffer_height(), 
+            ppm_max_color_component
+    );
+
+    // Write header
+    fprintf(fp, "%s\n %s\n %d\n %d\n %lu\n",
+            ppm_format,
+            ppm_comment, 
+            img_buffer_width(), 
+            img_buffer_height(), 
+            ppm_max_color_component
+    );
+    
+    fwrite(img_buffer, img_buffer_byte_count(), 1, fp);
+
+    fclose(fp);
+    return 0;
+}
+
+void usage(int argc, char **argv) 
+{
+    assert(argc > 0);
+
+    fprintf(stdout, 
+    "Usage:\n\
+    Take a screenshot and save it as `.ppm` image:\n\
+        \t%s -i [output_image_name]\n\n\
+    Stream current screen image to streaming server:\n\
+        \t%s -s [streaming_server_url]\n", 
+            
+            argv[0], 
+            argv[0]
+    );
+}
+
 int main(int argc, char **argv)
 {
     // Parse args 
