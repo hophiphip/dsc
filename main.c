@@ -14,7 +14,6 @@
 
 #include "mongoose/mongoose.h"
 
-
 typedef void (*transform_func)(void);
 
 // App can either dump image or stream it
@@ -26,8 +25,9 @@ enum app_mode_t {
 
 // App mode related 
 enum app_mode_t app_mode = DUMP_MODE;
-char *dump_file_path = NULL;
+char *dump_file_path = NULL; // example: test.ppm
 char *stream_src_url = NULL; // example: ws://localhost:8080/ws
+bool is_connected = false;
 
 // Globals
 Display             *display;
@@ -37,65 +37,10 @@ Screen               *screen;
 XImage               *ximage;
 XWindowAttributes attributes = { 0 };
 
-unsigned char *img_buffer = NULL;
+char *img_buffer = NULL;
 
 const int downscale_coef = 2;
 
-const char *dots[] = {
-    ".  ", ".. ", "..."
-};
-
-static void stream_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data)
-{
-    switch (ev) {
-        case MG_EV_ERROR: {
-            LOG(LL_ERROR, ("%p %s", c->fd, (char *) ev_data));
-        } break;
-
-        case MG_EV_WS_OPEN: {
-            c->label[0] = 'W';
-            is_connected = true;
-        } break;
-
-        case MG_EV_WS_MSG: {
-            /* DO NOTHING */
-        } break;
-    }
-
-    if (ev == MG_EV_ERROR || ev == MG_EV_CLOSE) {
-        is_connected = false;
-    }
-}
-
-
-// NOTE: Mb. try simple HTTP for now instead of Websockets ?
-static void stream_timer_callback(void *arg) 
-{
-    struct sc_image_conf *conf = (struct sc_image_conf *)arg;
-    static char dot_idx = 0;
-
-    if (is_connected) {
-        for (struct mg_connection *c = conf->mgr->conns; c != NULL; c = c->next) {
-            if (c->label[0] == 'W') {
-                // Update image
-                XShmGetImage(
-                    conf->display,          
-                    *(conf->drawable),
-                    conf->img,        
-                    0,                
-                    0,                
-                    0x00ffffff        
-                );
-
-
-                mg_ws_send(c, conf->img->data, conf->byte_size, WEBSOCKET_OP_BINARY);
-            }
-        }
-    } else {
-        LOG(LL_INFO, ("Not connected%s", dots[dot_idx]));
-        dot_idx = (dot_idx + 1) % 3;
-    }
-}
 
 static inline int img_width() {
     return attributes.width;
@@ -162,9 +107,9 @@ static void img_buffer_transform() {
                 }
             }
             
-            img_buffer[image_pixel_idx    ] = (unsigned char)(r / (downscale_coef * downscale_coef)) & 0xff;
-            img_buffer[image_pixel_idx + 1] = (unsigned char)(g / (downscale_coef * downscale_coef)) & 0xff;
-            img_buffer[image_pixel_idx + 2] = (unsigned char)(b / (downscale_coef * downscale_coef)) & 0xff;
+            img_buffer[image_pixel_idx    ] = (char)(r / (downscale_coef * downscale_coef)) & 0xff;
+            img_buffer[image_pixel_idx + 1] = (char)(g / (downscale_coef * downscale_coef)) & 0xff;
+            img_buffer[image_pixel_idx + 2] = (char)(b / (downscale_coef * downscale_coef)) & 0xff;
             image_pixel_idx += 3;
         }
     }
@@ -221,6 +166,46 @@ static int img_buffer_write(const char *path)
 
     fclose(fp);
     return 0;
+}
+
+static void stream_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data)
+{
+    switch (ev) {
+        case MG_EV_ERROR: {
+            LOG(LL_ERROR, ("%p %s", c->fd, (char *) ev_data));
+        } break;
+
+        case MG_EV_WS_OPEN: {
+            c->label[0] = 'W';
+            is_connected = true;
+        } break;
+
+        case MG_EV_WS_MSG: {
+            /* DO NOTHING */
+        } break;
+    }
+
+    if (ev == MG_EV_ERROR || ev == MG_EV_CLOSE) {
+        is_connected = false;
+    }
+}
+
+
+// NOTE: Mb. try simple HTTP for now instead of Websockets ?
+static void stream_timer_callback(void *arg) 
+{
+    struct mg_mgr *mgr = (struct mg_mgr *)arg;
+
+    if (is_connected) {
+        for (struct mg_connection *c = mgr->conns; c != NULL; c = c->next) {
+            if (c->label[0] == 'W') {
+                img_buffer_update();
+                mg_ws_send(c, img_buffer, img_buffer_byte_count(), WEBSOCKET_OP_BINARY);
+            }
+        }
+    } else {
+        LOG(LL_INFO, ("Not connected%s", ".."));
+    }
 }
 
 void usage(int argc, char **argv) 
@@ -299,7 +284,7 @@ int main(int argc, char **argv)
     }
 
     // No need for malloc for now
-    unsigned char local_img_buffer[img_byte_count()];
+    char local_img_buffer[img_byte_count()];
     img_buffer = local_img_buffer;
 
 
@@ -312,7 +297,24 @@ int main(int argc, char **argv)
         } break;
 
         case STREAM_MODE: {
-            assert(0);
+            struct mg_mgr mgr;
+            struct mg_timer timer;
+            struct mg_connection *conn;
+
+            mg_log_set("3");
+            mg_mgr_init(&mgr);
+            conn = mg_ws_connect(&mgr, stream_src_url, stream_handler, &mgr, NULL);
+            if (conn == NULL) {
+                fprintf(stderr, "could not connect to: %s\n", stream_src_url);
+                mg_mgr_free(&mgr);
+            } else {
+                mg_timer_init(&timer, 1000, MG_TIMER_REPEAT, stream_timer_callback, &mgr);
+                for (;;)
+                    mg_mgr_poll(&mgr, 1000);
+
+                mg_timer_free(&timer);
+                mg_mgr_free(&mgr);
+            }
         } break;
 
         default:
