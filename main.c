@@ -37,7 +37,7 @@ Screen               *screen;
 XImage               *ximage;
 XWindowAttributes attributes = { 0 };
 
-char *img_buffer = NULL;
+unsigned char *img_buffer = NULL;
 
 const int downscale_coef = 2;
 
@@ -107,9 +107,9 @@ static void img_buffer_transform() {
                 }
             }
             
-            img_buffer[image_pixel_idx    ] = (char)(r / (downscale_coef * downscale_coef)) & 0xff;
-            img_buffer[image_pixel_idx + 1] = (char)(g / (downscale_coef * downscale_coef)) & 0xff;
-            img_buffer[image_pixel_idx + 2] = (char)(b / (downscale_coef * downscale_coef)) & 0xff;
+            img_buffer[image_pixel_idx    ] = (unsigned char)(r / (downscale_coef * downscale_coef)) & 0xff;
+            img_buffer[image_pixel_idx + 1] = (unsigned char)(g / (downscale_coef * downscale_coef)) & 0xff;
+            img_buffer[image_pixel_idx + 2] = (unsigned char)(b / (downscale_coef * downscale_coef)) & 0xff;
             image_pixel_idx += 3;
         }
     }
@@ -191,7 +191,7 @@ static void stream_handler(struct mg_connection *c, int ev, void *ev_data, void 
 }
 
 
-// NOTE: Mb. try simple HTTP for now instead of Websockets ?
+// NOTE: try simple HTTP for now instead of Websockets ?
 static void stream_timer_callback(void *arg) 
 {
     struct mg_mgr *mgr = (struct mg_mgr *)arg;
@@ -200,7 +200,7 @@ static void stream_timer_callback(void *arg)
         for (struct mg_connection *c = mgr->conns; c != NULL; c = c->next) {
             if (c->label[0] == 'W') {
                 img_buffer_update();
-                mg_ws_send(c, img_buffer, img_buffer_byte_count(), WEBSOCKET_OP_BINARY);
+                mg_ws_send(c, (char *)img_buffer, img_buffer_byte_count(), WEBSOCKET_OP_BINARY);
             }
         }
     } else {
@@ -284,7 +284,7 @@ int main(int argc, char **argv)
     }
 
     // No need for malloc for now
-    char local_img_buffer[img_byte_count()];
+    unsigned char local_img_buffer[img_byte_count()];
     img_buffer = local_img_buffer;
 
 
