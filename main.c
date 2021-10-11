@@ -141,6 +141,8 @@ static void stream_handler(struct mg_connection *c, int ev, void *ev_data, void 
     }
 }
 
+
+// NOTE: Mb. try simple HTTP for now instead of Websockets ?
 static void stream_timer_callback(void *arg) 
 {
     struct sc_image_conf *conf = (struct sc_image_conf *)arg;
