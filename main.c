@@ -173,28 +173,38 @@ static void stream_timer_callback(void *arg)
 
 int main(int argc, char **argv)
 {
-    if (argc != 2) {
-        is_streaming = true;
+    // Parse args 
+    if (argc < 3) {
+        usage(argc, argv);
+        exit(1);
     }
 
-    Display *display = XOpenDisplay(NULL);
-    // TODO: Create a fallback with standard xlib calls
-    // for systems that do not support shared memory
+    if (strcmp(argv[1], "-i") == 0) {
+        app_mode = DUMP_MODE;
+        dump_file_path = argv[2];
+    } 
+    else if (strcmp(argv[1], "-s") == 0) {
+        app_mode = STREAM_MODE;
+        stream_src_url = argv[2];
+    } else {
+        usage(argc, argv);
+        exit(1);
+    }
+
+    // Initialization
+    display = XOpenDisplay(NULL);
+    root = DefaultRootWindow(display);
+
     if (XShmQueryExtension(display) != True) {
         fprintf(stderr, "shared memory extension is not supported\n");
         exit(1);
     }
 
-    Window root = DefaultRootWindow(display);
-    sc_image sc = { 0 };
-
-    XWindowAttributes attributes = { 0 };
     XGetWindowAttributes(display, root, &attributes);
 
-    Screen *screen = attributes.screen;
-    XShmSegmentInfo shminfo;
+    screen = attributes.screen;
 
-    XImage* ximage = XShmCreateImage(
+    ximage = XShmCreateImage(
             display,                        // Display
             DefaultVisualOfScreen(screen),  // Visual
             DefaultDepthOfScreen(screen),   // depth
@@ -220,87 +230,36 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    // sc initialization --------------------------------------------
-    sc.width  = attributes.width;
-    sc.height = attributes.height;
+    // No need for malloc for now
+    unsigned char local_img_buffer[img_byte_count()];
+    img_buffer = local_img_buffer;
 
-    XShmGetImage(
-        display,          // Display 
-        root,             // Drawable
-        ximage,           // XImage
-        0,                // x offset 
-        0,                // y offset
-        0x00ffffff        // plane mask (which planes to read)
-    );
 
-    sc.bits_per_pixel = ximage->bits_per_pixel; 
-    sc.byte_size      = sc.width  *
-                            sc.height *
-                               sc.bits_per_pixel / 8;
+    // Handle app mode
+    //
+    switch (app_mode) {
+        case DUMP_MODE: {
+            img_buffer_update();
+            img_buffer_write(dump_file_path);
+        } break;
 
-    uint8_t screen_buffer[sc.byte_size];
-    sc.pixels = screen_buffer;
+        case STREAM_MODE: {
+            assert(0);
+        } break;
 
-    memcpy(sc.pixels, ximage->data, sc.byte_size);
+        default:
+            fprintf(stderr, "app mode was not set\n");
 
-    // -------------------------------------------------------------- 
+            // TODO: Handle cleanup properly
+            XShmDetach(display, &shminfo);
+            XDestroyImage(ximage);
+            shmdt(shminfo.shmaddr);
+            XCloseDisplay(display);
 
-    // Log sc image info:
-    if (sc.width && sc.height) {
-        fprintf(stdout, "INFO:\n\twidth: %d\n\theight: %d\n\tbits per pixel: %d\n\tbuffer size: %d bytes\n",
-            sc.width,
-            sc.height,
-            sc.bits_per_pixel,
-            sc.byte_size
-        );
-    } else {
-        fprintf(stderr, "Failed to get window attributes\n");
-        exit(1);
-    }   
-
-    if (!is_streaming) {
-        if (ppm_write("test.ppm", &sc) == 0)
-            fprintf(stdout, "PPM Write status: OK\n");
-        else 
-            fprintf(stderr, "PPM Write status: Error\n");
-    }
-    else {
-        struct mg_mgr mgr;
-        struct mg_timer timer;
-        struct sc_image_conf img_conf = { 
-            .width = attributes.width,
-            .height = attributes.height,
-            .bits_per_pixel = ximage->bits_per_pixel,
-            .byte_size = attributes.width * attributes.height * (ximage->bits_per_pixel / 8),
-            
-            .img = ximage,
-            .display = display,
-            .drawable = &root,
-
-            .mgr = NULL
-        };
-        struct mg_connection *conn;
-
-        mg_log_set("3");
-        mg_mgr_init(&mgr);
-        conn = mg_ws_connect(&mgr, src_url, stream_handler, &img_conf, NULL);
-        if (conn == NULL) {
-            fprintf(stderr, "could not connect to the server\n");
-            mg_mgr_free(&mgr);
-            goto cleanup;
-        }
-
-        img_conf.mgr = &mgr;
-
-        mg_timer_init(&timer, 1000, MG_TIMER_REPEAT, stream_timer_callback, &img_conf);
-        for (;;)
-            mg_mgr_poll(&mgr, 1000);
-
-        mg_timer_free(&timer);
-        mg_mgr_free(&mgr);
+            exit(1);
     }
 
-cleanup:
+
     // Cleanup
     XShmDetach(display, &shminfo);
     XDestroyImage(ximage);
