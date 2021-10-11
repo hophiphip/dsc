@@ -12,112 +12,38 @@
 
 #include <assert.h>
 
-#include <time.h>
-#define FPS(start) (CLOCKS_PER_SEC / (clock() - start))
-
 #include "mongoose/mongoose.h"
 
-char *src_url = "ws://localhost:8080/ws";
-bool is_connected = false;
-bool is_streaming = false;
+
+typedef void (*transform_func)(void);
+
+// App can either dump image or stream it
+enum app_mode_t {
+    DUMP_MODE = 1,
+    STREAM_MODE,
+    MODE_LEN,    
+};
+
+// App mode related 
+enum app_mode_t app_mode = DUMP_MODE;
+char *dump_file_path = NULL;
+char *stream_src_url = NULL; // example: ws://localhost:8080/ws
+
+// Globals
+Display             *display;
+Window                  root;
+XShmSegmentInfo      shminfo;
+Screen               *screen;
+XImage               *ximage;
+XWindowAttributes attributes = { 0 };
+
+unsigned char *img_buffer = NULL;
+
+const int downscale_coef = 2;
 
 const char *dots[] = {
     ".  ", ".. ", "..."
 };
-
-const int resize_coef = 3;
-
-// TODO: Rename it to image config
-// Do not store pixels here --> they can be accesed from ximage buffer
-typedef struct {
-    uint8_t *pixels;
-    int width;
-    int height;
-    int bits_per_pixel;
-    int byte_size;
-} sc_image;
-
-struct sc_image_conf {
-    int width;
-    int height;
-    int bits_per_pixel;
-    int byte_size;
-
-    Display *display;
-    Drawable *drawable;
-    XImage *img;
-
-    struct mg_mgr *mgr;
-};
-
-int ppm_write(const char *file_path, const sc_image *sc) 
-{
-    const unsigned long ppm_max_color_component = 256UL - 1UL; 
-    const char *ppm_comment                     = "# screen capture output";
-    const char *ppm_format                      = "P6";
-
-    if (file_path && sc) {
-        FILE *fp;
-
-        if ((fp = fopen(file_path, "wb")) == NULL) {
-            fprintf(stderr, "failed to open file: %s\n", file_path);
-            return 1;
-        }
-
-        // Log ppm image header
-        fprintf(stdout, "PPM Header:\n\t%s\n\t%s\n\t%d\n\t%d\n\t%lu\n", 
-                ppm_format, 
-                ppm_comment, 
-                sc->width / resize_coef, 
-                sc->height / resize_coef, 
-                ppm_max_color_component
-        );
-
-        // Write header
-        fprintf(fp, "%s\n %s\n %d\n %d\n %lu\n",
-                ppm_format,
-                ppm_comment, 
-                sc->width / resize_coef, 
-                sc->height / resize_coef, 
-                ppm_max_color_component
-        );
-
-        int fwrite_count = 0, x, y;
-        // Write image bytes and resize image
-        // Slow implementation for now will be enough
-        uint8_t rgb_pixels[3];
-        for (y = 0; y < sc->height; y += resize_coef) {
-            for (x = 0; x < sc->width; x += resize_coef) {
-                int i = (y * sc->width + x) * (sc->bits_per_pixel / 8);
-
-                // Resize image to lower resolution
-                // r, b, g - is a sum of colors in square (resize_coef x resize_coef)
-                uint32_t r = 0, g = 0, b = 0;
-                for (int h = 0; h < resize_coef; ++h) {
-                    for (int v = 0; v < resize_coef; ++v) {
-                        r += (uint32_t)sc->pixels[i + 2 + (v * 4) + (h * sc->width * sc->bits_per_pixel / 8)];
-                        g += (uint32_t)sc->pixels[i + 1 + (v * 4) + (h * sc->width * sc->bits_per_pixel / 8)];
-                        b += (uint32_t)sc->pixels[i     + (v * 4) + (h * sc->width * sc->bits_per_pixel / 8)];
-                    }
-                }
-                rgb_pixels[0] = (uint8_t)(r / (resize_coef * resize_coef)) & 0xff;
-                rgb_pixels[1] = (uint8_t)(g / (resize_coef * resize_coef)) & 0xff;
-                rgb_pixels[2] = (uint8_t)(b / (resize_coef * resize_coef)) & 0xff;
-
-                fwrite(rgb_pixels, 1, 3, fp);
-                ++fwrite_count;
-            }
-        }
-
-        assert(fwrite_count == ((sc->width / resize_coef) * (sc->height / resize_coef)));
-
-        fclose(fp);
-        return 0;
-    }
-
-    return 1;
-}
-
 
 static void stream_handler(struct mg_connection *c, int ev, void *ev_data, void *fn_data)
 {
