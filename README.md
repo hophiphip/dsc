@@ -4,7 +4,7 @@ Takes a screenshot and saves it as [.ppm](https://en.wikipedia.org/wiki/Netpbm) 
 ## Dependencies
   * [Mongoose Networking Library](https://github.com/cesanta/mongoose)
 
-## Usage
+## Quick start
 ### Add submodules
 Initialize local configuration
 ```bash
