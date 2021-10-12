@@ -215,11 +215,17 @@ void usage(int argc, char **argv)
     fprintf(stdout, 
     "Usage:\n\
     Take a screenshot and save it as `.ppm` image:\n\
-        \t%s -i [output_image_name]\n\n\
+        \t%s -i [output_image_name]\n\
+    Example:\n\
+      %s -i test.ppm\n\n\
     Stream current screen image to streaming server:\n\
-        \t%s -s [streaming_server_url]\n", 
+        \t%s -s [streaming_server_url]\n\
+    Example:\n\
+      %s -s ws://localhost:8080/ws\n", 
             
             argv[0], 
+            argv[0],
+            argv[0],
             argv[0]
     );
 }
