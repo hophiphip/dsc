@@ -224,27 +224,8 @@ void usage(int argc, char **argv)
     );
 }
 
-int main(int argc, char **argv)
+void xlib_init()
 {
-    // Parse args 
-    if (argc < 3) {
-        usage(argc, argv);
-        exit(1);
-    }
-
-    if (strcmp(argv[1], "-i") == 0) {
-        app_mode = DUMP_MODE;
-        dump_file_path = argv[2];
-    } 
-    else if (strcmp(argv[1], "-s") == 0) {
-        app_mode = STREAM_MODE;
-        stream_src_url = argv[2];
-    } else {
-        usage(argc, argv);
-        exit(1);
-    }
-
-    // Initialization
     display = XOpenDisplay(NULL);
     root = DefaultRootWindow(display);
 
@@ -282,6 +263,38 @@ int main(int argc, char **argv)
         fprintf(stderr, "shm attach failed\n");
         exit(1);
     }
+}
+
+void xlib_clear()
+{
+    XShmDetach(display, &shminfo);
+    XDestroyImage(ximage);
+    shmdt(shminfo.shmaddr);
+
+    XCloseDisplay(display);
+}
+
+int main(int argc, char **argv)
+{
+    // Parse args 
+    if (argc < 3) {
+        usage(argc, argv);
+        exit(1);
+    }
+
+    if (strcmp(argv[1], "-i") == 0) {
+        app_mode = DUMP_MODE;
+        dump_file_path = argv[2];
+    } 
+    else if (strcmp(argv[1], "-s") == 0) {
+        app_mode = STREAM_MODE;
+        stream_src_url = argv[2];
+    } else {
+        usage(argc, argv);
+        exit(1);
+    }
+
+    xlib_init();
 
     // No need for malloc for now
     unsigned char local_img_buffer[img_byte_count()];
@@ -319,21 +332,9 @@ int main(int argc, char **argv)
 
         default:
             fprintf(stderr, "app mode was not set\n");
-
-            // TODO: Handle cleanup properly
-            XShmDetach(display, &shminfo);
-            XDestroyImage(ximage);
-            shmdt(shminfo.shmaddr);
-            XCloseDisplay(display);
-
+            xlib_clear();
             exit(1);
     }
 
-
-    // Cleanup
-    XShmDetach(display, &shminfo);
-    XDestroyImage(ximage);
-    shmdt(shminfo.shmaddr);
-
-    XCloseDisplay(display);
+    xlib_clear();
 }
