@@ -265,7 +265,7 @@ void xlib_init()
     }
 }
 
-void xlib_clear()
+void xlib_cleanup()
 {
     XShmDetach(display, &shminfo);
     XDestroyImage(ximage);
@@ -332,9 +332,9 @@ int main(int argc, char **argv)
 
         default:
             fprintf(stderr, "app mode was not set\n");
-            xlib_clear();
+            xlib_cleanup();
             exit(1);
     }
 
-    xlib_clear();
+    xlib_cleanup();
 }
