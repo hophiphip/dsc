@@ -46,52 +46,18 @@ XWindowAttributes attributes = { 0 };
 unsigned char *img_buffer = NULL;
 const int downscale_coef  = 2;
 
-inline int img_width() 
-{
-    return attributes.width;
-}
+int   img_width()          { return attributes.width;  }
+int   img_height()         { return attributes.height; }
+int   img_bits_per_pixel() { return ximage->bits_per_pixel; }
+int   img_byte_count()     { return img_width() * img_height() * img_bits_per_pixel() / BITS_IN_BYTE; }
+char* img_pixels()         { return ximage->data; }
 
-inline int img_height() 
-{
-    return attributes.height;
-}
 
-inline int img_bits_per_pixel() 
-{
-    return ximage->bits_per_pixel;
-}
-
-inline int img_byte_count()
-{
-    return img_width() 
-            * img_height() 
-            * img_bits_per_pixel()
-            / BITS_IN_BYTE;
-}
-
-inline char* img_pixels() 
-{
-    return ximage->data;
-}
-
-inline int img_buffer_width() 
-{
-    return img_width() / downscale_coef;
-}
-
-inline int img_buffer_height()
-{
-    return img_height() / downscale_coef;
-}
-
-inline int img_buffer_byte_count()
-{
-    return img_buffer_width() 
-            * img_buffer_height()
-            * BYTES_IN_RGB;
-}
-
+int  img_buffer_width()      { return img_width()  / downscale_coef; }
+int  img_buffer_height()     { return img_height() / downscale_coef; }
+int  img_buffer_byte_count() { return img_buffer_width() * img_buffer_height() * BYTES_IN_RGB; }
 void img_buffer_update();
+
 
 void xlib_init();
 void xlib_cleanup();
