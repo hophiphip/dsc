@@ -139,7 +139,12 @@ int main(int argc, char **argv)
     }
 
     imgr = xlib_init();
-    ALLOC_IMG_BUFFER(imgr);
+
+    assert(imgr.ximage);
+
+    int byte_count = imgr.attributes.width * imgr.attributes.height * imgr.ximage->bits_per_pixel / BITS_IN_BYTE;
+    unsigned char local_ibuffer[byte_count];
+    imgr.img_buffer = local_ibuffer;
 
     // Handle app mode
     //

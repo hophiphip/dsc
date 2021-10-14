@@ -18,7 +18,7 @@ elseif(APPLE)
 
 elseif(UNIX AND NOT APPLE)
     # for Linux, BSD, Solaris, Minix
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -ggdb -lX11 -lXext -pedantic")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -ggdb -lX11 -lXext -pedantic -Wall")
 endif()
 
 add_executable(dsc

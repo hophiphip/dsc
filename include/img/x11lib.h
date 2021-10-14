@@ -48,7 +48,7 @@ typedef void (*transform_func)(
 #define img_height(mgr) ((mgr)->attributes.height)
 #define img_bits_per_pixel(mgr) ((mgr)->ximage->bits_per_pixel)
 #define img_pixels(mgr) ((mgr)->ximage->data)
-#define img_byte_count(mgr) ((img_width(mgr)) * (img_height(mgr)) * (img_bits_per_pixel(mgr)) * BITS_IN_BYTE)
+#define img_byte_count(mgr) ((img_width(mgr)) * (img_height(mgr)) * (img_bits_per_pixel(mgr)) / BITS_IN_BYTE)
 
 #define img_buffer_width(mgr) ((img_width(mgr)) / (mgr)->downscale_coef)
 #define img_buffer_height(mgr) ((img_height(mgr)) / (mgr)->downscale_coef)

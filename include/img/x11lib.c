@@ -61,6 +61,8 @@ void img_buffer_update(img_mgr *mgr)
 img_mgr xlib_init()
 {
     img_mgr mgr = { 0 };
+    mgr.img_buffer = NULL;
+    mgr.downscale_coef = 2;
 
     mgr.display = XOpenDisplay(NULL);
     mgr.window = DefaultRootWindow(mgr.display);
@@ -99,6 +101,8 @@ img_mgr xlib_init()
         fprintf(stderr, "shm attach failed\n");
         exit(1);
     }
+
+    return mgr;
 }
 
 void xlib_cleanup(img_mgr *mgr)
