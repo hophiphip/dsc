@@ -129,6 +129,30 @@ dsc/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/dsc.dir/build.make CMakeFiles/dsc.dir/build
 .PHONY : dsc/fast
 
+include/img/x11lib.o: include/img/x11lib.c.o
+.PHONY : include/img/x11lib.o
+
+# target to build an object file
+include/img/x11lib.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dsc.dir/build.make CMakeFiles/dsc.dir/include/img/x11lib.c.o
+.PHONY : include/img/x11lib.c.o
+
+include/img/x11lib.i: include/img/x11lib.c.i
+.PHONY : include/img/x11lib.i
+
+# target to preprocess a source file
+include/img/x11lib.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dsc.dir/build.make CMakeFiles/dsc.dir/include/img/x11lib.c.i
+.PHONY : include/img/x11lib.c.i
+
+include/img/x11lib.s: include/img/x11lib.c.s
+.PHONY : include/img/x11lib.s
+
+# target to generate assembly for a file
+include/img/x11lib.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dsc.dir/build.make CMakeFiles/dsc.dir/include/img/x11lib.c.s
+.PHONY : include/img/x11lib.c.s
+
 include/mongoose/mongoose.o: include/mongoose/mongoose.c.o
 .PHONY : include/mongoose/mongoose.o
 
@@ -186,6 +210,9 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... dsc"
+	@echo "... include/img/x11lib.o"
+	@echo "... include/img/x11lib.i"
+	@echo "... include/img/x11lib.s"
 	@echo "... include/mongoose/mongoose.o"
 	@echo "... include/mongoose/mongoose.i"
 	@echo "... include/mongoose/mongoose.s"

@@ -21,7 +21,10 @@ elseif(UNIX AND NOT APPLE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -ggdb -lX11 -lXext -pedantic")
 endif()
 
-add_executable(dsc 
+add_executable(dsc
+    # Networking library
     include/mongoose/mongoose.c
+    # Desktop image pixels handling
+    include/img/x11lib.c
     main.c
 )
