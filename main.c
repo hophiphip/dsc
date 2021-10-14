@@ -9,6 +9,8 @@ enum app_mode_t {
     MODE_LEN,    
 };
 
+img_mgr imgr;
+
 // App mode related 
 enum app_mode_t app_mode = DUMP_MODE;
 char *dump_file_path = NULL; // example: test.ppm
@@ -17,7 +19,7 @@ char *stream_src_url = NULL; // example: ws://localhost:8080/ws
 bool is_connected    = false;
 
 // Write image buffer bytes to a file
-static int img_buffer_write(const char *path) 
+static int img_buffer_write(img_mgr *mgr, const char *path) 
 {
     const unsigned long ppm_max_color_component = 256UL - 1UL; 
     const char *ppm_comment                     = "# screen capture output";
@@ -33,8 +35,8 @@ static int img_buffer_write(const char *path)
     fprintf(stdout, "PPM Header:\n\t%s\n\t%s\n\t%d\n\t%d\n\t%lu\n", 
             ppm_format, 
             ppm_comment, 
-            img_buffer_width(), 
-            img_buffer_height(), 
+            img_buffer_width(mgr), 
+            img_buffer_height(mgr), 
             ppm_max_color_component
     );
 
@@ -42,12 +44,12 @@ static int img_buffer_write(const char *path)
     fprintf(fp, "%s\n %s\n %d\n %d\n %lu\n",
             ppm_format,
             ppm_comment, 
-            img_buffer_width(), 
-            img_buffer_height(), 
+            img_buffer_width(mgr), 
+            img_buffer_height(mgr), 
             ppm_max_color_component
     );
     
-    fwrite(img_buffer, img_buffer_byte_count(), 1, fp);
+    fwrite(mgr->img_buffer, img_buffer_byte_count(mgr), 1, fp);
 
     fclose(fp);
     return 0;
@@ -84,8 +86,8 @@ static void stream_timer_callback(void *arg)
     if (is_connected) {
         for (struct mg_connection *c = mgr->conns; c != NULL; c = c->next) {
             if (c->label[0] == 'W') {
-                img_buffer_update();
-                mg_ws_send(c, (char *)img_buffer, img_buffer_byte_count(), WEBSOCKET_OP_BINARY);
+                img_buffer_update(&imgr);
+                mg_ws_send(c, (char *)(imgr.img_buffer), img_buffer_byte_count(&imgr), WEBSOCKET_OP_BINARY);
             }
         }
     } else {
@@ -136,16 +138,15 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    xlib_init();
-
-    ALLOC_IMG_BUFFER();
+    imgr = xlib_init();
+    ALLOC_IMG_BUFFER(imgr);
 
     // Handle app mode
     //
     switch (app_mode) {
         case DUMP_MODE: {
-            img_buffer_update();
-            img_buffer_write(dump_file_path);
+            img_buffer_update(&imgr);
+            img_buffer_write(&imgr, dump_file_path);
         } break;
 
         case STREAM_MODE: {
@@ -171,9 +172,9 @@ int main(int argc, char **argv)
 
         default:
             fprintf(stderr, "app mode was not set\n");
-            xlib_cleanup();
+            xlib_cleanup(&imgr);
             exit(1);
     }
 
-    xlib_cleanup();
+    xlib_cleanup(&imgr);
 }

@@ -21,45 +21,41 @@
 #define BYTES_IN_RGB 3
 
 // No malloc for now
-#define ALLOC_IMG_BUFFER()                                     \
-    unsigned char __x11lib_local_img_buffer[img_byte_count()]; \
-    img_buffer = __x11lib_local_img_buffer
+#define ALLOC_IMG_BUFFER(mgr)                                      \
+    unsigned char __x11lib_local_img_buffer[img_byte_count(&mgr)]; \
+    mgr.img_buffer = __x11lib_local_img_buffer
 
+
+typedef struct {
+    Window            window;
+    Screen           *screen;
+    Display         *display;
+    XShmSegmentInfo  shminfo;
+
+    XImage *ximage;
+    XWindowAttributes attributes;
+    unsigned char *img_buffer;
+    int downscale_coef;
+} img_mgr;
 
 // Function type for `img_buffer_transform` to handle
 // image transformation / (down)scaling
 typedef void (*transform_func)(
-        char         *pixels, // image pixel buffer 
-        const int      width, // image width
-        const int     height, // image height
-        const int byte_count  // image pixel byte count
+        img_mgr *mgr
 );
 
-// Module globals
-static Display              *display;
-static Window                   root;
-static XShmSegmentInfo       shminfo;
-static Screen                *screen;
-XImage                       *ximage;
-XWindowAttributes attributes = { 0 };
+#define img_width(mgr) ((mgr)->attributes.width)
+#define img_height(mgr) ((mgr)->attributes.height)
+#define img_bits_per_pixel(mgr) ((mgr)->ximage->bits_per_pixel)
+#define img_pixels(mgr) ((mgr)->ximage->data)
+#define img_byte_count(mgr) ((img_width(mgr)) * (img_height(mgr)) * (img_bits_per_pixel(mgr)) * BITS_IN_BYTE)
 
-unsigned char *img_buffer = NULL;
-const int downscale_coef  = 2;
+#define img_buffer_width(mgr) ((img_width(mgr)) / (mgr)->downscale_coef)
+#define img_buffer_height(mgr) ((img_height(mgr)) / (mgr)->downscale_coef)
+#define img_buffer_byte_count(mgr) ((img_buffer_width(mgr)) * (img_buffer_height(mgr)) * BYTES_IN_RGB)
 
-int   img_width()          { return attributes.width;  }
-int   img_height()         { return attributes.height; }
-int   img_bits_per_pixel() { return ximage->bits_per_pixel; }
-int   img_byte_count()     { return img_width() * img_height() * img_bits_per_pixel() / BITS_IN_BYTE; }
-char* img_pixels()         { return ximage->data; }
-
-
-int  img_buffer_width()      { return img_width()  / downscale_coef; }
-int  img_buffer_height()     { return img_height() / downscale_coef; }
-int  img_buffer_byte_count() { return img_buffer_width() * img_buffer_height() * BYTES_IN_RGB; }
-void img_buffer_update();
-
-
-void xlib_init();
-void xlib_cleanup();
+img_mgr xlib_init();
+void img_buffer_update(img_mgr *mgr); 
+void xlib_cleanup(img_mgr *mgr);
 
 #endif // __IMG_X11LIB
