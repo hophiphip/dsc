@@ -1,5 +1,7 @@
 #include "x11lib.h"
 
+
+// TODO: Turn this into example function and put it in to main.c / utils.c (create a file for utilities)
 static void img_buffer_transform(img_mgr *mgr) {
     // TODO: make a proper NULL handling
     assert(mgr);
@@ -52,6 +54,7 @@ void img_buffer_update(img_mgr *mgr)
             0x00ffffff  // plane mask (which planes to read)
         );
 
+        // TODO: THis function must be called from mgr structure if != `NULL` on screen pixels
         img_buffer_transform(mgr);
     }
 }

@@ -9,6 +9,7 @@ enum app_mode_t {
     MODE_LEN,    
 };
 
+// Screen image manager
 img_mgr imgr;
 
 // App mode related 

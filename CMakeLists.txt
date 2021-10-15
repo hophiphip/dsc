@@ -24,7 +24,7 @@ endif()
 add_executable(dsc
     # Networking library
     include/mongoose/mongoose.c
-    # Desktop image pixels handling
+    # Screen image manager for x11
     include/img/x11lib.c
     main.c
 )
