@@ -87,7 +87,7 @@ static void stream_timer_callback(void *arg)
     if (is_connected) {
         for (struct mg_connection *c = mgr->conns; c != NULL; c = c->next) {
             if (c->label[0] == 'W') {
-                img_buffer_update(&imgr);
+                img_mgr_buffer_update(&imgr);
                 mg_ws_send(c, (char *)(imgr.img_buffer), img_buffer_byte_count(&imgr), WEBSOCKET_OP_BINARY);
             }
         }
@@ -127,6 +127,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    // TODO: Create `parse_args` function, that will return enum with application mode
     if (strcmp(argv[1], "-i") == 0) {
         app_mode = DUMP_MODE;
         dump_file_path = argv[2];
@@ -139,15 +140,14 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    imgr = xlib_init();
-    assert(imgr.ximage);
-    ALLOC_IMG_BUFFER(imgr);
+    img_mgr_init(&imgr);
+    img_mgr_buffer_alloc(imgr);
 
     // Handle app mode
     //
     switch (app_mode) {
         case DUMP_MODE: {
-            img_buffer_update(&imgr);
+            img_mgr_buffer_update(&imgr);
             img_buffer_write(&imgr, dump_file_path);
         } break;
 
@@ -174,9 +174,9 @@ int main(int argc, char **argv)
 
         default:
             fprintf(stderr, "app mode was not set\n");
-            xlib_cleanup(&imgr);
+            img_mgr_free(&imgr);
             exit(1);
     }
 
-    xlib_cleanup(&imgr);
+    img_mgr_free(&imgr);
 }

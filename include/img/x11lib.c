@@ -1,6 +1,5 @@
 #include "x11lib.h"
 
-
 // TODO: Turn this into example function and put it in to main.c / utils.c (create a file for utilities)
 static void img_buffer_transform(img_mgr *mgr) {
     // TODO: make a proper NULL handling
@@ -41,7 +40,7 @@ static void img_buffer_transform(img_mgr *mgr) {
 }
 
 // Update image buffer
-void img_buffer_update(img_mgr *mgr) 
+void img_mgr_buffer_update(img_mgr *mgr) 
 {
     if (mgr) {
         // Update image
@@ -61,54 +60,54 @@ void img_buffer_update(img_mgr *mgr)
 
 
 // TODO: Create a fallback for case where Shm module is not supported
-img_mgr xlib_init()
+void img_mgr_init(img_mgr *mgr)
 {
-    img_mgr mgr = { 0 };
-    mgr.img_buffer = NULL;
-    mgr.downscale_coef = 2;
+    // TODO: Add null check
+    assert(mgr);
 
-    mgr.display = XOpenDisplay(NULL);
-    mgr.window = DefaultRootWindow(mgr.display);
+    mgr->img_buffer = NULL;
+    mgr->downscale_coef = 2;
 
-    if (XShmQueryExtension(mgr.display) != True) {
+    mgr->display = XOpenDisplay(NULL);
+    mgr->window = DefaultRootWindow(mgr->display);
+
+    if (XShmQueryExtension(mgr->display) != True) {
         fprintf(stderr, "shared memory extension is not supported\n");
         exit(1);
     }
 
-    XGetWindowAttributes(mgr.display, mgr.window, &(mgr.attributes));
+    XGetWindowAttributes(mgr->display, mgr->window, &(mgr->attributes));
 
-    mgr.screen = mgr.attributes.screen;
+    mgr->screen = mgr->attributes.screen;
 
-    mgr.ximage = XShmCreateImage(
-            mgr.display,                        // Display
-            DefaultVisualOfScreen(mgr.screen),  // Visual
-            DefaultDepthOfScreen(mgr.screen),   // depth
-            ZPixmap,                        // format
-            NULL,                           // data
-            &(mgr.shminfo),                       // ShmSegmentInfo
-            mgr.attributes.width,               // width
-            mgr.attributes.height               // height
+    mgr->ximage = XShmCreateImage(
+            mgr->display,                        // Display
+            DefaultVisualOfScreen(mgr->screen),  // Visual
+            DefaultDepthOfScreen(mgr->screen),   // depth
+            ZPixmap,                             // format
+            NULL,                                // data
+            &(mgr->shminfo),                     // ShmSegmentInfo
+            mgr->attributes.width,               // width
+            mgr->attributes.height               // height
     );
 
-    mgr.shminfo.shmid = shmget(IPC_PRIVATE, mgr.ximage->bytes_per_line * mgr.ximage->height, IPC_CREAT|0777);
-    mgr.shminfo.shmaddr = mgr.ximage->data = (char *)shmat(mgr.shminfo.shmid, 0, 0);
-    mgr.shminfo.readOnly = False;
+    mgr->shminfo.shmid = shmget(IPC_PRIVATE, mgr->ximage->bytes_per_line * mgr->ximage->height, IPC_CREAT|0777);
+    mgr->shminfo.shmaddr = mgr->ximage->data = (char *)shmat(mgr->shminfo.shmid, 0, 0);
+    mgr->shminfo.readOnly = False;
 
-    if (mgr.shminfo.shmid < 0) {
+    if (mgr->shminfo.shmid < 0) {
         fprintf(stderr, "fatal shminfo error\n");
         exit(1);
     }
 
-    Status status = XShmAttach(mgr.display, &(mgr.shminfo));
+    Status status = XShmAttach(mgr->display, &(mgr->shminfo));
     if (!status) {
         fprintf(stderr, "shm attach failed\n");
         exit(1);
     }
-
-    return mgr;
 }
 
-void xlib_cleanup(img_mgr *mgr)
+void img_mgr_free(img_mgr *mgr)
 {
     if (mgr) {
         XShmDetach(mgr->display, &(mgr->shminfo));
