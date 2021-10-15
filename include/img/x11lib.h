@@ -29,25 +29,32 @@
 // and make this type as a fleld for `img_mgr` structure
 // Function type for `img_buffer_transform` to handle
 // image transformation / (down)scaling
-typedef void (*transform_func)(img_mgr *mgr);
+typedef void (*transform_func)(
+    unsigned char *pixels, // image (RGB) pixel buffer
+    const int width,       // image width
+    const int height,      // image height
+    const int byte_count   // image byte count: basically: width * height * 3 // for 3 RGB bytes
+);
 
 typedef struct {
-    Window            window;
-    Screen           *screen;
-    Display         *display;
-    XShmSegmentInfo  shminfo;
+    // X11 Lib related
+    Window                window;
+    Screen               *screen;
+    Display             *display;
+    XShmSegmentInfo      shminfo;
 
+    // Screen image related
     XImage               *ximage;
     XWindowAttributes attributes;
 
-    // Ximage related
-    char       *img_pixels;
-    int          img_width;
-    int         img_height;
-    int img_bits_per_pixel;
-    int     img_byte_count;
+    // XImage `data` field related
+    char             *img_pixels;
+    int                img_width;
+    int               img_height;
+    int       img_bits_per_pixel;
+    int           img_byte_count;
    
-    // Imgae buffer related
+    // Image buffer related
     unsigned char    *img_buffer;
     int           downscale_coef;
     int         img_buffer_width;
@@ -57,7 +64,7 @@ typedef struct {
     // Transformation function 
     // that is performed on image buffer pixels on each update
     //  Example: donscaling function
-    transform_func *transformation
+    transform_func *img_buffer_transformation;
 } img_mgr;
 
 // TODO: better not use macros / `inline` too doesn't seem like a good alternative
