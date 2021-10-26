@@ -8,5 +8,5 @@ go run server.go
 ```
 
 ## TODO
-- [ ] Fix incorrect canvas behaviour
+- [ ] Fix incorrect canvas behavior
 
