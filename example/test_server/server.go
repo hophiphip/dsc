@@ -87,7 +87,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
-// TODO: Fix incorrect canvas behaviour
+// TODO: Fix incorrect canvas behavior
 // TODO: Use `embed` package to embed .html
 var homeTemplate = template.Must(template.New("").Parse(`
 <!DOCTYPE html>
