@@ -29,6 +29,11 @@
 // and make this type as a fleld for `img_mgr` structure
 // Function type for `img_buffer_transform` to handle
 // image transformation / (down)scaling
+//
+// TODO: Mb. transformation buffer must be provided form outside?
+// otherwise we must track downscale_coef & transformation funtion
+//
+// TODO: Mb. rename transformation Function to downscaling function ?
 typedef void (*transform_func)(
     unsigned char *pixels, // image (RGB) pixel buffer
     const int width,       // image width
